@@ -1,17 +1,12 @@
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <sys/errno.h>
-#include <arpa/inet.h>
 #include <unistd.h>
 #include <math.h>
 #include <switch.h>
 #include "commands.h"
 #include "args.h"
 #include "util.h"
-#include <poll.h>
 #include "pm_ams.h"
 
 #define TITLE_ID 0x430000000000000B
