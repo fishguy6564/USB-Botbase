@@ -1,6 +1,6 @@
 # USB-Botbase
 
-USB-Botbase is based off of sys-botbase by olliz0r. This versions implements USB support and removes network support. If you would like to use the original version with network support then you can download it through olliz0r's github page [here](https://github.com/olliz0r/sys-botbase).
+USB-Botbase is based off of sys-botbase by olliz0r. This versions implements USB support and removes network support. If you would like to use the original version with network support, then you can download it through olliz0r's github page [here](https://github.com/olliz0r/sys-botbase).
 
 ## Dependencies
 - Python3 is the required version of python needed to run scripts for USB-Botbase.
