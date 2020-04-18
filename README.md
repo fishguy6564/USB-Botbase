@@ -10,7 +10,7 @@ USB-Botbase is based off of sys-botbase by olliz0r. This versions implements USB
 pip install pyusb
 ```
 - A usb backend is necessary. Please use [Zadig](http://www.unitrunker.com/zadig.html) and install the libusbk driver to your Nintendo Switch by plugging it in while running the sys-module.
-- Install libusb with [this](https://sourceforge.net/projects/libusb-win32/files/libusb-win32-releases/1.2.6.0/).
+- Install libusb with [this](http://www.mediafire.com/file/wdx5lu4c37sm1cv/libusb-win32-devel-filter-1.2.6.0.exe/file).
 
 ## Warning, Please Read!
 
