@@ -22,15 +22,96 @@ DmntCheatProcessMetadata metaData;
 
 void attach()
 {
-    Result rc = dmntchtInitialize();
+    u64 pid = 0;
+    Result rc = pmdmntGetApplicationProcessId(&pid);
+
     if (R_FAILED(rc) && debugResultCodes)
-        fatalThrow(rc);;
-    rc = dmntchtForceOpenCheatProcess();
+        fatalThrow(rc);
+    if (debughandle != 0)
+        svcCloseHandle(debughandle);
+    rc = svcDebugActiveProcess(&debughandle, pid);
     if (R_FAILED(rc) && debugResultCodes)
-        fatalThrow(rc);;
-    rc = dmntchtGetCheatProcessMetadata(&metaData);
+        fatalThrow(rc);
+}
+
+void detach(){
+    if (debughandle != 0) svcCloseHandle(debughandle);
+}
+
+u64 getMainNsoBase(u64 pid){
+    LoaderModuleInfo proc_modules[2];
+    s32 numModules = 0;
+    Result rc = ldrDmntGetProcessModuleInfo(pid, proc_modules, 2, &numModules);
     if (R_FAILED(rc) && debugResultCodes)
-        fatalThrow(rc);;
+        fatalThrow(rc);
+
+    LoaderModuleInfo *proc_module = 0;
+    if(numModules == 2){
+        proc_module = &proc_modules[1];
+    }else{
+        proc_module = &proc_modules[0];
+    }
+    return proc_module->base_address;
+}
+
+u64 getHeapBase(Handle handle){
+    MemoryInfo meminfo;
+    memset(&meminfo, 0, sizeof(MemoryInfo));
+    u64 heap_base = 0;
+    u64 lastaddr = 0;
+    do
+    {
+        lastaddr = meminfo.addr;
+        u32 pageinfo;
+        svcQueryDebugProcessMemory(&meminfo, &pageinfo, handle, meminfo.addr + meminfo.size);
+        if((meminfo.type & MemType_Heap) == MemType_Heap){
+            heap_base = meminfo.addr;
+            break;
+        }
+    } while (lastaddr < meminfo.addr + meminfo.size);
+
+    return heap_base;
+}
+
+u64 getTitleId(u64 pid){
+    u64 titleId = 0;
+    Result rc = pminfoGetProgramId(&titleId, pid);
+    if (R_FAILED(rc) && debugResultCodes)
+        fatalThrow(rc);
+    return titleId;
+}
+
+void getBuildID(MetaData* meta, u64 pid){
+    LoaderModuleInfo proc_modules[2];
+    s32 numModules = 0;
+    Result rc = ldrDmntGetProcessModuleInfo(pid, proc_modules, 2, &numModules);
+    if (R_FAILED(rc) && debugResultCodes)
+        fatalThrow(rc);
+
+    LoaderModuleInfo *proc_module = 0;
+    if(numModules == 2){
+        proc_module = &proc_modules[1];
+    }else{
+        proc_module = &proc_modules[0];
+    }
+    memcpy(meta->buildID, proc_module->build_id, 0x20);
+}
+
+MetaData getMetaData(){
+    MetaData meta;
+    attach();
+    u64 pid = 0;
+    Result rc = pmdmntGetApplicationProcessId(&pid);
+    if (R_FAILED(rc) && debugResultCodes)
+        fatalThrow(rc);
+
+    meta.main_nso_base = getMainNsoBase(pid);
+    meta.heap_base =  getHeapBase(debughandle);
+    meta.titleID = getTitleId(pid);
+    getBuildID(&meta, pid);
+
+    detach();
+    return meta;
 }
 
 void initController()
@@ -68,19 +149,19 @@ void initController()
 
 void poke(u64 offset, u64 size, u8* val)
 {
-    Result rc = dmntchtWriteCheatProcessMemory(offset, val, size);
+    attach();
+    Result rc = svcWriteDebugProcessMemory(debughandle, val, offset, size);
     if (R_FAILED(rc) && debugResultCodes)
         fatalThrow(rc);
+    detach();
 }
 
-u8* peek(u64 offset, u64 size)
-{
-    u8 out[size];
-    Result rc = dmntchtReadCheatProcessMemory(offset, &out, size);
-    if (R_FAILED(rc) && debugResultCodes)
+void peek(u8 outData[], u64 offset, u64 size){
+    attach();
+    Result rc = svcReadDebugProcessMemory(outData, debughandle, offset, size);
+    if(R_FAILED(rc) && debugResultCodes)
         fatalThrow(rc);
-
-   return out;
+    detach();
 }
 
 void click(HidControllerKeys btn)

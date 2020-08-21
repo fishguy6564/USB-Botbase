@@ -1,34 +1,11 @@
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <sys/socket.h>
-#include <sys/errno.h>
-#include <arpa/inet.h>
 #include <unistd.h>
 #include <switch.h>
 #include "util.h"
 #include "commands.h"
 
-int setupServerSocket()
-{
-    int lissock;
-    int yes = 1;
-    struct sockaddr_in server;
-    lissock = socket(AF_INET, SOCK_STREAM, 0);
-
-    setsockopt(lissock, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(int));
-
-    server.sin_family = AF_INET;
-    server.sin_addr.s_addr = INADDR_ANY;
-    server.sin_port = htons(6000);
-
-    while (bind(lissock, (struct sockaddr *)&server, sizeof(server)) < 0)
-    {
-        svcSleepThread(1e+9L);
-    }
-    listen(lissock, 3);
-    return lissock;
-}
 
 u64 parseStringToInt(char* arg){
     if(strlen(arg) > 2){
@@ -75,7 +52,7 @@ u8* parseStringToByteBuffer(char* arg, u64* size)
             }
         }else{
             toTranslate[0] = arg[i*2];
-            toTranslate[1] = arg[(i*2) + 1];      
+            toTranslate[1] = arg[(i*2) + 1];
         }
         isFirst = false;
         if(isHex){
@@ -93,7 +70,7 @@ HidControllerKeys parseStringToButton(char* arg)
     if (strcmp(arg, "A") == 0)
     {
         return KEY_A;
-    } 
+    }
     else if (strcmp(arg, "B") == 0)
     {
         return KEY_B;
@@ -163,4 +140,15 @@ HidControllerKeys parseStringToButton(char* arg)
         return KEY_CAPTURE;
     }
     return KEY_A; //I guess lol
+}
+
+Result capsscCaptureForDebug(void *buffer, size_t buffer_size, u64 *size) {
+    struct {
+        u32 a;
+        u64 b;
+    } in = {0, 10000000000};
+    return serviceDispatchInOut(capsscGetServiceSession(), 1204, in, *size,
+        .buffer_attrs = {SfBufferAttr_HipcMapTransferAllowsNonSecure | SfBufferAttr_HipcMapAlias | SfBufferAttr_Out},
+        .buffers = { { buffer, buffer_size } },
+    );
 }
