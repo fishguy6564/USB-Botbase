@@ -249,11 +249,16 @@ int argmain(int argc, char **argv)
         }
 
         int dxVal = strtol(argv[2], NULL, 0);
-        if(dxVal > JOYSTICK_MAX) dxVal = JOYSTICK_MAX; //0x7FFF
-        if(dxVal < JOYSTICK_MIN) dxVal = JOYSTICK_MIN; //-0x8000
+        if(dxVal > JOYSTICK_MAX)
+            dxVal = JOYSTICK_MAX; //0x7FFF
+        if(dxVal < JOYSTICK_MIN)
+            dxVal = JOYSTICK_MIN; //-0x8000
+
         int dyVal = strtol(argv[3], NULL, 0);
-        if(dxVal > JOYSTICK_MAX) dxVal = JOYSTICK_MAX;
-        if(dxVal < JOYSTICK_MIN) dxVal = JOYSTICK_MIN;
+        if(dyVal > JOYSTICK_MAX)
+            dyVal = JOYSTICK_MAX;
+        if(dyVal < JOYSTICK_MIN)
+            dyVal = JOYSTICK_MIN;
 
         setStickState(side, dxVal, dyVal);
     }

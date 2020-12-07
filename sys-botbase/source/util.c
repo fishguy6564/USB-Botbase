@@ -4,8 +4,6 @@
 #include <unistd.h>
 #include <switch.h>
 #include "util.h"
-#include "commands.h"
-
 
 u64 parseStringToInt(char* arg){
     if(strlen(arg) > 2){
