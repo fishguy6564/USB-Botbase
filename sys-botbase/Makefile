@@ -7,6 +7,7 @@ endif
 
 TOPDIR ?= $(CURDIR)
 include $(DEVKITPRO)/libnx/switch_rules
+#include $(DEVKITPRO)/libnx/switch/services/time.h
 
 TARGET		:=	sys-botbase
 BUILD		:=	build

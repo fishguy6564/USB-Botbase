@@ -8,17 +8,20 @@
 #include "args.h"
 #include "util.h"
 #include "pm_ams.h"
+#include "time.h"
 
 #define TITLE_ID 0x430000000000000B
 #define HEAP_SIZE 0x000540000
 
-typedef struct{
-	u64 size;
-	void* data;
+typedef struct
+{
+    u64 size;
+    void* data;
 }USBResponse;
 
 // we aren't an applet
 u32 __nx_applet_type = AppletType_None;
+TimeServiceType __nx_time_service_type = TimeServiceType_System;
 
 // setup a fake heap (we don't need the heap anyway)
 char fake_heap[HEAP_SIZE];
@@ -38,9 +41,8 @@ void sendUsbResponse(USBResponse response)
 {
     usbCommsWrite((void*)&response, 4);
 
-    if (response.size > 0) {
+    if (response.size > 0)
         usbCommsWrite(response.data, response.size);
-    }
 }
 
 void __appInit(void)
@@ -50,9 +52,14 @@ void __appInit(void)
     rc = smInitialize();
     if (R_FAILED(rc))
         fatalThrow(rc);
-    if (hosversionGet() == 0) {
+    rc = apmInitialize();
+    if(R_FAILED(rc))
+        fatalThrow(rc);
+    if (hosversionGet() == 0)
+    {
         rc = setsysInitialize();
-        if (R_SUCCEEDED(rc)) {
+        if (R_SUCCEEDED(rc))
+        {
             SetSysFirmwareVersion fw;
             rc = setsysGetFirmwareVersion(&fw);
             if (R_SUCCEEDED(rc))
@@ -68,23 +75,30 @@ void __appInit(void)
         fatalThrow(rc);
     rc = timeInitialize();
     if (R_FAILED(rc))
-        fatalThrow(rc);
+    {
+        timeExit();
+        __nx_time_service_type = TimeServiceType_User;
+        rc = timeInitialize();
+        if(R_FAILED(rc))
+            fatalThrow(rc);
+    }
     rc = pmdmntInitialize();
     if (R_FAILED(rc))
         fatalThrow(rc);
     rc = ldrDmntInitialize();
-	if (R_FAILED(rc)) {
-		fatalThrow(rc);
-	}
+    if (R_FAILED(rc))
+        fatalThrow(rc);
     rc = pminfoInitialize();
-	if (R_FAILED(rc)) {
-		fatalThrow(rc);
-	}
+    if (R_FAILED(rc))
+        fatalThrow(rc);
     rc = capsscInitialize();
     if (R_FAILED(rc))
         fatalThrow(rc);
     rc = usbCommsInitialize();
     if (rc)
+        fatalThrow(rc);
+    rc = socketInitializeDefault();
+    if (R_FAILED(rc))
         fatalThrow(rc);
 }
 
@@ -95,19 +109,18 @@ void __appExit(void)
     smExit();
     audoutExit();
     timeExit();
+    socketExit();
 }
 
 u64 mainLoopSleepTime = 50;
 bool debugResultCodes = false;
-
 bool echoCommands = false;
 
 int argmain(int argc, char **argv)
 {
-	USBResponse response;
+    USBResponse response;
     if (argc == 0)
         return 0;
-
 
     //peek <address in hex or dec> <amount of bytes in hex or dec>
     if (!strcmp(argv[0], "peek"))
@@ -116,16 +129,14 @@ int argmain(int argc, char **argv)
             return 0;
 
         MetaData meta = getMetaData();
-
         u64 offset = parseStringToInt(argv[1]);
         u64 size = parseStringToInt(argv[2]);
         u8 data[size];
 
-		peek(data, meta.heap_base + offset, size);
-
-		response.size = size;
-		response.data = &data[0];
-		sendUsbResponse(response);
+        peek(data, meta.heap_base + offset, size);
+        response.size = size;
+        response.data = &data[0];
+        sendUsbResponse(response);
     }
 
     if (!strcmp(argv[0], "peekAbsolute"))
@@ -138,10 +149,9 @@ int argmain(int argc, char **argv)
         u8 data[size];
 
         peek(data, offset, size);
-
-		response.size = size;
-		response.data = &data[0];
-		sendUsbResponse(response);
+        response.size = size;
+        response.data = &data[0];
+        sendUsbResponse(response);
     }
 
     if (!strcmp(argv[0], "peekMain"))
@@ -150,16 +160,14 @@ int argmain(int argc, char **argv)
             return 0;
 
         MetaData meta = getMetaData();
-
         u64 offset = parseStringToInt(argv[1]);
         u64 size = parseStringToInt(argv[2]);
         u8 data[size];
 
-		peek(data, meta.main_nso_base + offset, size);
-
-		response.size = size;
-		response.data = &data[0];
-		sendUsbResponse(response);
+        peek(data, meta.main_nso_base + offset, size);
+        response.size = size;
+        response.data = &data[0];
+        sendUsbResponse(response);
     }
 
     //poke <address in hex or dec> <amount of bytes in hex or dec> <data in hex or dec>
@@ -240,13 +248,11 @@ int argmain(int argc, char **argv)
             return 0;
 
         int side = 0;
-        if(!strcmp(argv[1], "LEFT")){
+        if(!strcmp(argv[1], "LEFT"))
             side = JOYSTICK_LEFT;
-        }else if(!strcmp(argv[1], "RIGHT")){
+        else if(!strcmp(argv[1], "RIGHT"))
             side = JOYSTICK_RIGHT;
-        }else{
-            return 0;
-        }
+        else return 0;
 
         int dxVal = strtol(argv[2], NULL, 0);
         if(dxVal > JOYSTICK_MAX)
@@ -277,66 +283,76 @@ int argmain(int argc, char **argv)
     }
 
     //configure <mainLoopSleepTime or buttonClickSleepTime> <time in ms>
-    if(!strcmp(argv[0], "configure")){
+    if(!strcmp(argv[0], "configure"))
+    {
         if(argc != 3)
             return 0;
 
 
-        if(!strcmp(argv[1], "mainLoopSleepTime")){
+        if(!strcmp(argv[1], "mainLoopSleepTime"))
+        {
             u64 time = parseStringToInt(argv[2]);
             mainLoopSleepTime = time;
         }
 
-        if(!strcmp(argv[1], "buttonClickSleepTime")){
+        if(!strcmp(argv[1], "buttonClickSleepTime"))
+        {
             u64 time = parseStringToInt(argv[2]);
             buttonClickSleepTime = time;
         }
 
-        if(!strcmp(argv[1], "echoCommands")){
+        if(!strcmp(argv[1], "echoCommands"))
+        {
             u64 shouldActivate = parseStringToInt(argv[2]);
             echoCommands = shouldActivate != 0;
         }
 
-        if(!strcmp(argv[1], "printDebugResultCodes")){
+        if(!strcmp(argv[1], "printDebugResultCodes"))
+        {
             u64 shouldActivate = parseStringToInt(argv[2]);
             debugResultCodes = shouldActivate != 0;
         }
     }
 
-    if(!strcmp(argv[0], "getTitleID")){
+    if(!strcmp(argv[0], "getTitleID"))
+    {
         MetaData meta = getMetaData();
-		response.size = sizeof(meta.titleID);
-		response.data = &meta.titleID;
+        response.size = sizeof(meta.titleID);
+        response.data = &meta.titleID;
         sendUsbResponse(response);
     }
 
-    if(!strcmp(argv[0], "getSystemLanguage")){
+    if(!strcmp(argv[0], "getSystemLanguage"))
+    {
         //thanks zaksa
         setInitialize();
         u64 languageCode = 0;
         SetLanguage language = SetLanguage_ENUS;
         setGetSystemLanguage(&languageCode);
         setMakeLanguage(languageCode, &language);
-		response.size = sizeof(language);
-		response.data = &language;
-		sendUsbResponse(response);
-    }
-
-    if(!strcmp(argv[0], "getMainNsoBase")){
-        MetaData meta = getMetaData();
-		response.size = sizeof(meta.main_nso_base);
-		response.data = &meta.main_nso_base;
+        response.size = sizeof(language);
+        response.data = &language;
         sendUsbResponse(response);
     }
 
-    if(!strcmp(argv[0], "getHeapBase")){
+    if(!strcmp(argv[0], "getMainNsoBase"))
+    {
         MetaData meta = getMetaData();
-		response.size = sizeof(meta.heap_base);
-		response.data = &meta.heap_base;
+        response.size = sizeof(meta.main_nso_base);
+        response.data = &meta.main_nso_base;
         sendUsbResponse(response);
     }
 
-    if(!strcmp(argv[0], "pixelPeek")){
+    if(!strcmp(argv[0], "getHeapBase"))
+    {
+        MetaData meta = getMetaData();
+        response.size = sizeof(meta.heap_base);
+        response.data = &meta.heap_base;
+        sendUsbResponse(response);
+    }
+
+    if(!strcmp(argv[0], "pixelPeek"))
+    {
         u64 bufferSize = 0x7D000;
         char* buf = malloc(bufferSize);
         u64 outSize = 0;
@@ -353,40 +369,51 @@ int argmain(int argc, char **argv)
         free(buf);
     }
 
+    if(!strcmp(argv[0], "daySkip"))
+    {
+        int resetTimeAfterSkips = parseStringToInt(argv[1]);
+        bool skipForward = parseStringToInt(argv[2]);
+        bool resetNTP = parseStringToInt(argv[3]) == 1;
+        dateSkip(resetTimeAfterSkips, skipForward, resetNTP);
+    }
+
+    if(!strcmp(argv[0], "resetTime"))
+        resetTime();
+
+    if(!strcmp(argv[0], "resetTimeNTP"))
+        resetTimeNTP();
+
     return 0;
 }
 
 int main()
 {
-	USBResponse response;
-
+    USBResponse response;
     while (appletMainLoop())
     {
-		int len;
-		usbCommsRead(&len, sizeof(len));
+        int len;
+        usbCommsRead(&len, sizeof(len));
 
 		//Should use malloc
-		char linebuf[len + 1];
+        char linebuf[len + 1];
 
-		for(int i = 0; i < len+1; i++){
-			linebuf[i] = 0;
-		}
+        for(int i = 0; i < len+1; i++)
+            linebuf[i] = 0;
 
-		usbCommsRead(&linebuf, len);
+        usbCommsRead(&linebuf, len);
 
 		//Adds necessary escape characters for pasrser
-		linebuf[len-1] = '\n';
-		linebuf[len-2] = '\r';
+        linebuf[len-1] = '\n';
+        linebuf[len-2] = '\r';
 
-		fflush(stdout);
-		parseArgs(linebuf, &argmain);
+        fflush(stdout);
+        parseArgs(linebuf, &argmain);
 
-
-		if(echoCommands){
-			response.size = sizeof(linebuf);
-			response.data = &linebuf;
-			sendUsbResponse(response);
-		}
+        if(echoCommands){
+            response.size = sizeof(linebuf);
+            response.data = &linebuf;
+            sendUsbResponse(response);
+        }
 
         svcSleepThread(mainLoopSleepTime * 1e+6L);
     }

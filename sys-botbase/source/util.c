@@ -18,7 +18,7 @@ u64 parseStringToInt(char* arg){
 
 u8* parseStringToByteBuffer(char* arg, u64* size)
 {
-    char toTranslate[2];
+    char toTranslate[3] = {0};
     int length = strlen(arg);
     bool isHex = false;
 

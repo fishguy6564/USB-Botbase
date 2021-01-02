@@ -1,4 +1,5 @@
 #include <switch.h>
+#include <time.h>
 
 extern Handle debughandle;
 extern bool bControllerIsInitialised;
@@ -28,3 +29,6 @@ void click(HidControllerKeys btn);
 void press(HidControllerKeys btn);
 void release(HidControllerKeys btn);
 void setStickState(int side, int dxVal, int dyVal);
+void dateSkip(int resetTimeAfterSkips, bool skipForward, bool resetNTP);
+void resetTime();
+void resetTimeNTP();
