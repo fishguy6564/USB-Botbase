@@ -13,6 +13,7 @@ Mutex actionLock;
 //Controller:
 bool bControllerIsInitialised = false;
 time_t curTime = 0;
+time_t origTime = 0;
 int resetSkips = 0;
 HiddbgHdlsHandle controllerHandle = {0};
 HiddbgHdlsDeviceInfo controllerDevice = {0};
@@ -203,11 +204,18 @@ void setStickState(int side, int dxVal, int dyVal)
     hiddbgSetHdlsState(controllerHandle, &controllerState);
 }
 
-void dateSkip(int resetTimeAfterSkips, bool skipForward, bool resetNTP)
+void dateSkip(int resetTimeAfterSkips, int skipForward, int resetNTP)
 {
     int direction = 1; //Possible utility to roll back time for weather? If neg, roll backwards
-    if(!skipForward)
+    if(skipForward != 1)
         direction = direction * -1;
+
+    if(origTime == 0)
+    {
+        Result ot = timeGetCurrentTime(TimeType_UserSystemClock, (u64*)&origTime);
+        if(R_FAILED(ot))
+            fatalThrow(ot);
+    }
 
     Result tg = timeGetCurrentTime(TimeType_UserSystemClock, (u64*)&curTime); //Current system time
     if(R_FAILED(tg))
@@ -221,7 +229,7 @@ void dateSkip(int resetTimeAfterSkips, bool skipForward, bool resetNTP)
     resetSkips++;
     if(resetTimeAfterSkips != 0 && (resetTimeAfterSkips == resetSkips)) //Reset time after # of skips
         resetTime();
-    if(resetNTP)
+    if(resetNTP != 0)
         resetTimeNTP();
 }
 
@@ -235,7 +243,7 @@ void resetTime()
     }
 
     struct tm currentTime = *localtime(&curTime);
-    struct tm timeReset = *localtime(&curTime);
+    struct tm timeReset = *localtime(&origTime);
     timeReset.tm_hour = currentTime.tm_hour;
     timeReset.tm_min = currentTime.tm_min;
     timeReset.tm_sec = currentTime.tm_sec;
