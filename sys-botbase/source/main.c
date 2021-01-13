@@ -372,9 +372,8 @@ int argmain(int argc, char **argv)
     if(!strcmp(argv[0], "daySkip"))
     {
         int resetTimeAfterSkips = parseStringToInt(argv[1]);
-        int skipForward = parseStringToInt(argv[2]);
-        int resetNTP = parseStringToInt(argv[3]);
-        dateSkip(resetTimeAfterSkips, skipForward, resetNTP);
+        int resetNTP = parseStringToInt(argv[2]);
+        dateSkip(resetTimeAfterSkips, resetNTP);
     }
 
     if(!strcmp(argv[0], "resetTime"))
