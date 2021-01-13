@@ -5,20 +5,21 @@
 #include <math.h>
 #include "commands.h"
 #include "util.h"
-#include "dmntcht.h"
+#include "time.h"
+#include "ntp.h"
 
 Mutex actionLock;
 
 //Controller:
 bool bControllerIsInitialised = false;
-u64 controllerHandle = 0;
+time_t curTime = 0;
+time_t origTime = 0;
+int resetSkips = 0;
+HiddbgHdlsHandle controllerHandle = {0};
 HiddbgHdlsDeviceInfo controllerDevice = {0};
 HiddbgHdlsState controllerState = {0};
-
 Handle debughandle = 0;
 u64 buttonClickSleepTime = 50;
-
-DmntCheatProcessMetadata metaData;
 
 void attach()
 {
@@ -35,7 +36,8 @@ void attach()
 }
 
 void detach(){
-    if (debughandle != 0) svcCloseHandle(debughandle);
+    if (debughandle != 0)
+        svcCloseHandle(debughandle);
 }
 
 u64 getMainNsoBase(u64 pid){
@@ -120,10 +122,10 @@ void initController()
     //taken from switchexamples github
     Result rc = hiddbgInitialize();
     if (R_FAILED(rc) && debugResultCodes)
-        fatalThrow(rc);;
+        fatalThrow(rc);
     // Set the controller type to Pro-Controller, and set the npadInterfaceType.
     controllerDevice.deviceType = HidDeviceType_FullKey3;
-    controllerDevice.npadInterfaceType = NpadInterfaceType_Bluetooth;
+    controllerDevice.npadInterfaceType = HidNpadInterfaceType_Bluetooth;
     // Set the controller colors. The grip colors are for Pro-Controller on [9.0.0+].
     controllerDevice.singleColorBody = RGBA8_MAXALPHA(255,255,255);
     controllerDevice.singleColorButtons = RGBA8_MAXALPHA(0,0,0);
@@ -131,14 +133,14 @@ void initController()
     controllerDevice.colorRightGrip = RGBA8_MAXALPHA(0,40,20);
 
     // Setup example controller state.
-    controllerState.batteryCharge = 4; // Set battery charge to full.
-    controllerState.joysticks[JOYSTICK_LEFT].dx = 0x0;
-    controllerState.joysticks[JOYSTICK_LEFT].dy = -0x0;
-    controllerState.joysticks[JOYSTICK_RIGHT].dx = 0x0;
-    controllerState.joysticks[JOYSTICK_RIGHT].dy = -0x0;
+    controllerState.battery_level = 4; // Set battery charge to full.
+    controllerState.analog_stick_l.x = 0x0;
+    controllerState.analog_stick_l.y = -0x0;
+    controllerState.analog_stick_r.x = 0x0;
+    controllerState.analog_stick_r.y = -0x0;
     rc = hiddbgAttachHdlsWorkBuffer();
     if (R_FAILED(rc) && debugResultCodes)
-        fatalThrow(rc);;
+        fatalThrow(rc);
     rc = hiddbgAttachHdlsVirtualDevice(&controllerHandle, &controllerDevice);
     if (R_FAILED(rc) && debugResultCodes)
         fatalThrow(rc);
@@ -156,7 +158,8 @@ void poke(u64 offset, u64 size, u8* val)
     detach();
 }
 
-void peek(u8 outData[], u64 offset, u64 size){
+void peek(u8 outData[], u64 offset, u64 size)
+{
     attach();
     Result rc = svcReadDebugProcessMemory(outData, debughandle, offset, size);
     if(R_FAILED(rc) && debugResultCodes)
@@ -188,7 +191,72 @@ void release(HidControllerKeys btn)
 void setStickState(int side, int dxVal, int dyVal)
 {
     initController();
-    controllerState.joysticks[side].dx = dxVal;
-    controllerState.joysticks[side].dy = dyVal;
+    if(side == 0)
+    {
+        controllerState.analog_stick_l.x = dxVal;
+        controllerState.analog_stick_l.y = dyVal;
+    }
+    if(side == 1)
+    {
+        controllerState.analog_stick_r.x = dxVal;
+        controllerState.analog_stick_r.y = dyVal;
+    }
     hiddbgSetHdlsState(controllerHandle, &controllerState);
+}
+
+void dateSkip(int resetTimeAfterSkips, int skipForward, int resetNTP)
+{
+    int direction = 1; //Possible utility to roll back time for weather? If neg, roll backwards
+    if(skipForward != 1)
+        direction = direction * -1;
+
+    if(origTime == 0)
+    {
+        Result ot = timeGetCurrentTime(TimeType_UserSystemClock, (u64*)&origTime);
+        if(R_FAILED(ot))
+            fatalThrow(ot);
+    }
+
+    Result tg = timeGetCurrentTime(TimeType_UserSystemClock, (u64*)&curTime); //Current system time
+    if(R_FAILED(tg))
+        fatalThrow(tg);
+
+    time_t advanceTime = curTime + (direction * 86400);
+    Result ts = timeSetCurrentTime(TimeType_NetworkSystemClock, (uint64_t)advanceTime); //Set new time
+    if(R_FAILED(ts))
+        fatalThrow(ts);
+
+    resetSkips++;
+    if(resetTimeAfterSkips != 0 && (resetTimeAfterSkips == resetSkips)) //Reset time after # of skips
+        resetTime();
+    if(resetNTP != 0)
+        resetTimeNTP();
+}
+
+void resetTime()
+{
+    if(curTime == 0)
+    {
+        Result ct = timeGetCurrentTime(TimeType_UserSystemClock, (u64*)&curTime); //Current system time
+        if(R_FAILED(ct))
+            fatalThrow(ct);
+    }
+
+    struct tm currentTime = *localtime(&curTime);
+    struct tm timeReset = *localtime(&origTime);
+    timeReset.tm_hour = currentTime.tm_hour;
+    timeReset.tm_min = currentTime.tm_min;
+    timeReset.tm_sec = currentTime.tm_sec;
+    Result rt = timeSetCurrentTime(TimeType_NetworkSystemClock, mktime(&timeReset));
+    if(R_FAILED(rt))
+        fatalThrow(rt);
+
+    resetSkips = 0;
+}
+
+void resetTimeNTP()
+{
+    Result ts = timeSetCurrentTime(TimeType_NetworkSystemClock, (uint64_t)ntpGetTime());
+    if(R_FAILED(ts))
+        fatalThrow(ts);
 }

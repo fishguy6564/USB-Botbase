@@ -1,10 +1,11 @@
 #include <switch.h>
+#include <time.h>
 
 extern Handle debughandle;
-bool bControllerIsInitialised;
-u64 controllerHandle;
-HiddbgHdlsDeviceInfo controllerDevice;
-HiddbgHdlsState controllerState;
+extern bool bControllerIsInitialised;
+extern HiddbgHdlsHandle controllerHandle;
+extern HiddbgHdlsDeviceInfo controllerDevice;
+extern HiddbgHdlsState controllerState;
 extern u64 buttonClickSleepTime;
 
 typedef struct {
@@ -28,3 +29,6 @@ void click(HidControllerKeys btn);
 void press(HidControllerKeys btn);
 void release(HidControllerKeys btn);
 void setStickState(int side, int dxVal, int dyVal);
+void dateSkip(int resetTimeAfterSkips, int skipForward, int resetNTP);
+void resetTime();
+void resetTimeNTP();
