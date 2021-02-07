@@ -25,9 +25,9 @@ MetaData getMetaData(void);
 
 void poke(u64 offset, u64 size, u8* val);
 void peek(u8* outData, u64 offset, u64 size);
-void click(HidControllerKeys btn);
-void press(HidControllerKeys btn);
-void release(HidControllerKeys btn);
+void click(HidNpadButton btn);
+void press(HidNpadButton btn);
+void release(HidNpadButton btn);
 void setStickState(int side, int dxVal, int dyVal);
 void dateSkip(int resetTimeAfterSkips, int resetNTP);
 void resetTime();
