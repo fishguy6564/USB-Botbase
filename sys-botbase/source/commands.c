@@ -167,21 +167,21 @@ void peek(u8 outData[], u64 offset, u64 size)
     detach();
 }
 
-void click(HidControllerKeys btn)
+void click(HidNpadButton btn)
 {
     initController();
     press(btn);
     svcSleepThread(buttonClickSleepTime * 1e+6L);
     release(btn);
 }
-void press(HidControllerKeys btn)
+void press(HidNpadButton btn)
 {
     initController();
     controllerState.buttons |= btn;
     hiddbgSetHdlsState(controllerHandle, &controllerState);
 }
 
-void release(HidControllerKeys btn)
+void release(HidNpadButton btn)
 {
     initController();
     controllerState.buttons &= ~btn;
@@ -204,12 +204,8 @@ void setStickState(int side, int dxVal, int dyVal)
     hiddbgSetHdlsState(controllerHandle, &controllerState);
 }
 
-void dateSkip(int resetTimeAfterSkips, int skipForward, int resetNTP)
+void dateSkip(int resetTimeAfterSkips, int resetNTP)
 {
-    int direction = 1; //Possible utility to roll back time for weather? If neg, roll backwards
-    if(skipForward != 1)
-        direction = direction * -1;
-
     if(origTime == 0)
     {
         Result ot = timeGetCurrentTime(TimeType_UserSystemClock, (u64*)&origTime);
@@ -221,15 +217,14 @@ void dateSkip(int resetTimeAfterSkips, int skipForward, int resetNTP)
     if(R_FAILED(tg))
         fatalThrow(tg);
 
-    time_t advanceTime = curTime + (direction * 86400);
-    Result ts = timeSetCurrentTime(TimeType_NetworkSystemClock, (uint64_t)advanceTime); //Set new time
+    Result ts = timeSetCurrentTime(TimeType_NetworkSystemClock, (uint64_t)(curTime + 86400)); //Set new time
     if(R_FAILED(ts))
         fatalThrow(ts);
 
     resetSkips++;
-    if(resetTimeAfterSkips != 0 && (resetTimeAfterSkips == resetSkips)) //Reset time after # of skips
+    if(resetNTP == 0 && resetTimeAfterSkips != 0 && (resetTimeAfterSkips == resetSkips)) //Reset time after # of skips
         resetTime();
-    if(resetNTP != 0)
+    else if(resetNTP != 0 && resetTimeAfterSkips != 0 && (resetTimeAfterSkips == resetSkips))
         resetTimeNTP();
 }
 
@@ -242,6 +237,7 @@ void resetTime()
             fatalThrow(ct);
     }
 
+    resetSkips = 0;
     struct tm currentTime = *localtime(&curTime);
     struct tm timeReset = *localtime(&origTime);
     timeReset.tm_hour = currentTime.tm_hour;
@@ -250,13 +246,12 @@ void resetTime()
     Result rt = timeSetCurrentTime(TimeType_NetworkSystemClock, mktime(&timeReset));
     if(R_FAILED(rt))
         fatalThrow(rt);
-
-    resetSkips = 0;
 }
 
 void resetTimeNTP()
 {
-    Result ts = timeSetCurrentTime(TimeType_NetworkSystemClock, (uint64_t)ntpGetTime());
+    resetSkips = 0;
+    Result ts = timeSetCurrentTime(TimeType_NetworkSystemClock, ntpGetTime());
     if(R_FAILED(ts))
         fatalThrow(ts);
 }

@@ -95,7 +95,7 @@ void __appInit(void)
     if (R_FAILED(rc))
         fatalThrow(rc);
     rc = usbCommsInitialize();
-    if (rc)
+    if (R_FAILED(rc))
         fatalThrow(rc);
     rc = socketInitializeDefault();
     if (R_FAILED(rc))
@@ -219,7 +219,7 @@ int argmain(int argc, char **argv)
     {
         if(argc != 2)
             return 0;
-        HidControllerKeys key = parseStringToButton(argv[1]);
+        HidNpadButton key = parseStringToButton(argv[1]);
         click(key);
     }
 
@@ -228,7 +228,7 @@ int argmain(int argc, char **argv)
     {
         if(argc != 2)
             return 0;
-        HidControllerKeys key = parseStringToButton(argv[1]);
+        HidNpadButton key = parseStringToButton(argv[1]);
         press(key);
     }
 
@@ -237,7 +237,7 @@ int argmain(int argc, char **argv)
     {
         if(argc != 2)
             return 0;
-        HidControllerKeys key = parseStringToButton(argv[1]);
+        HidNpadButton key = parseStringToButton(argv[1]);
         release(key);
     }
 
@@ -249,9 +249,9 @@ int argmain(int argc, char **argv)
 
         int side = 0;
         if(!strcmp(argv[1], "LEFT"))
-            side = JOYSTICK_LEFT;
+            side = 0;
         else if(!strcmp(argv[1], "RIGHT"))
-            side = JOYSTICK_RIGHT;
+            side = 1;
         else return 0;
 
         int dxVal = strtol(argv[2], NULL, 0);
@@ -372,9 +372,8 @@ int argmain(int argc, char **argv)
     if(!strcmp(argv[0], "daySkip"))
     {
         int resetTimeAfterSkips = parseStringToInt(argv[1]);
-        int skipForward = parseStringToInt(argv[2]);
-        int resetNTP = parseStringToInt(argv[3]);
-        dateSkip(resetTimeAfterSkips, skipForward, resetNTP);
+        int resetNTP = parseStringToInt(argv[2]);
+        dateSkip(resetTimeAfterSkips, resetNTP);
     }
 
     if(!strcmp(argv[0], "resetTime"))
